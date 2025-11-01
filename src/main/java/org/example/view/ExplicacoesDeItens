@@ -1,0 +1,129 @@
+Aqui vai ficar itens que me ajudaram e que eu nao conhecia
+
+Explicação de SwingUtilities.invokeLater
+
+1. O Conceito de "Thread" (Fio de Execução)
+No Java, um thread é um caminho de execução de código. Uma aplicação pode ter vários threads rodando simultaneamente.
+Em aplicações Swing, existem dois threads principais que nos importam:
+
+Thread Principal (Main Thread): Onde o metodo main é executado. Pode fazer cálculos iniciais.
+
+Thread de Despacho de Eventos (Event Dispatch Thread - EDT):
+Este é o thread dedicado e único responsável por toda a manipulação da interface gráfica (GUI) no Swing.
+
+2. A Regra de Ouro do Swing
+A regra crucial no Swing é:
+
+Todo e qualquer codigo que interage, cria ou modifica componentes da interface gráfica (GUI) DEVE ser executado na Event Dispatch Thread (EDT).
+
+3. O Problema que o invokeLater Resolve
+Quando sua aplicação Java começa, ela geralmente está na Thread Principal. Se você tentar criar sua janela (JFrame)
+ ou adicionar um botão diretamente na Thread Principal (chamando new ViewCalculadoraRota(mapa); no main), isso viola a regra.
+
+Por que é um problema?
+
+Consistência Visual: Se a Thread Principal e a EDT tentarem atualizar a GUI ao mesmo tempo,
+ pode haver problemas de concorrência (race conditions), resultando em componentes que não aparecem,
+  são desenhados de forma incompleta ou têm um comportamento inesperado.
+
+Bloqueio da Interface: A EDT também é responsável por processar eventos do usuário (cliques de botão, digitação).
+Se você rodar uma tarefa longa (como um cálculo complexo ou carregamento de dados) na EDT,
+a interface congela (fica irresponsiva) até que a tarefa termine, pois a EDT não consegue processar os cliques do usuário.
+
+4. O que SwingUtilities.invokeLater Faz
+O metodo SwingUtilities.invokeLater é a solução para isso:
+
+Enfileiramento: Ele pega o código que você passa (geralmente dentro de um Runnable) e o coloca no final da fila de tarefas da EDT.
+
+Execução Segura: A EDT, quando estiver pronta, retira esse código da fila e o executa.
+Isso garante que a criação e inicialização da sua GUI ocorra em um ambiente seguro e dentro do thread que é responsável por ela.
+
+Em Resumo:
+SwingUtilities.invokeLater garante que a criação da janela e de todos os seus componentes seja feita na Thread de Despacho de Eventos (EDT),
+ prevenindo erros de concorrência, garantindo a consistência visual e mantendo a GUI responsiva.
+
+
+ ---------------------------------------------------------------------------------
+
+ Visão geral: o trecho começa registrando um MouseListener que captura cliques no componente.
+  Ao clicar, o ponto na tela é obtido e convertido para coordenadas da imagem com traduzirCliqueTelaParaImagem. 
+  Se o clique estiver fora da área renderizada da imagem, a função retorna null e o clique é ignorado. 
+  Caso contrário, busca-se a estação mais próxima em coordenadas da imagem com encontrarEstacaoProxima; se uma estação estiver dentro da tolerância, 
+  processarClique é chamado para definir origem/destino e calcular a rota.
+
+  Busca da estação mais próxima: encontrarEstacaoProxima itera sobre coordenadasEstacoes (que devem estar em pixels da imagem original),
+   calcula distância euclidiana entre o clique traduzido e cada estação, e escolhe a menor. Há uma tolerância fixa (TOLERANCIA = 15.0) 
+   medida em pixels da imagem original; só retorna uma estação se a menor distância for ≤ tolerância. 
+   Logs de debug mostram distâncias e a estação escolhida.
+
+   Processamento do clique: processarClique alterna entre definir estacaoOrigem e, no próximo clique válido, 
+   definir estacaoDestino e calcular a rota via mapaMetro.calcularRota.
+    O resultado é escrito em areaResultado e rotaCalculada recebe a lista de estações;
+     em seguida chama repaint() para redesenhar o painel. 
+     Há proteção para ignorar clique quando origem == destino.
+
+     Desenho (paintComponent): calcula área disponível com um PADDING e define imgRenderW/H/X/Y preservando aspecto da imagem.
+      Se a imagem não existe desenha mensagem. Quando existe rotaCalculada, 
+      desenha primeiro um glow radial em cada estação da rota (usando traduzirPontoImagemParaTela), 
+      depois linhas entre estações com stroke e cor definidos. 
+      Finalmente desenha um marcador de origem (círculo verde) se aplicável.
+
+
+---------------------------------------------------------------------------------------------
+
+O que é um hash / hashCode
+Um hash (geralmente o resultado de hashCode() em Java) é um inteiro calculado a partir do conteúdo do objeto.
+ Ele é usado para decidir em qual "balde" (bucket) o objeto será colocado. Dois pontos importantes:
+
+Objetos iguais (pela regra de equals) devem retornar o mesmo hashCode.
+
+Objetos diferentes podem ter o mesmo hashCode (colisão). A estrutura trata colisões internamente.
+
+Como funciona um HashMap (internamente, de forma simplificada)
+
+HashMap tem uma tabela (array) de buckets. Cada bucket referencia uma lista (ou árvore quando muitos itens colidem) de entradas.
+Ao fazer put(key, value):
+Calcula-se hash = key.hashCode() (e faz-se um espalhamento/mascara).
+
+Determina-se o índice do bucket a partir do hash.
+
+Se já existe uma entrada com equals(key), substitui o valor; senão adiciona uma nova entrada no bucket.
+
+Ao fazer get(key):
+Calcula o hash e vai ao bucket correspondente; percorre as entradas e compara equals para encontrar a chave.
+
+Rebalanceamento: se o número de entradas ultrapassa capacity * loadFactor (padrão capacity=16, loadFactor=0.75), a tabela é redimensionada (dobrada) e as entradas são re-hashadas.
+
+Desde Java 8, se um bucket ficar muito grande (muitos elementos colidindo), o chain (lista) pode virar uma árvore (melhora complexidade no pior caso).
+
+Complexidade: média O(1) para put/get; pior caso O(n) sem árvores (mas com árvores e bom hash, pior caso rarefeito).
+
+Pontos importantes sobre HashMap em Java
+
+Permite null como chave (somente uma) e null como valor.
+
+Não é thread-safe — para uso concorrente use ConcurrentHashMap ou Collections.synchronizedMap(...).
+
+Ordem de iteração NÃO é previsível; se precisar de ordem, 
+use LinkedHashMap (preserva ordem de inserção) ou TreeMap (ordem por comparador).
+
+HashSet
+HashSet usa um HashMap internamente (as chaves do mapa são os elementos do conjunto e o valor é um objeto sentinel). 
+Ele garante unicidade: inserir um elemento existente não altera o conjunto.
+
+Contrato equals() e hashCode() (essencial)
+Se você usa objetos personalizados como chave em um HashMap ou como elementos de HashSet, sobrescreva ambos corretamente:
+
+Se a.equals(b) então a.hashCode() == b.hashCode().
+Se hashCode for implementado mal (mudando com o tempo ou dependendo de campos mutáveis),
+ o objeto pode "sumir" do mapa (não encontrado mais).
+
+ Boas práticas e sugestões
+Use HashMap para buscas rápidas por chave quando não precisar de ordem.
+
+Se for multi-thread, prefira ConcurrentHashMap.
+
+Evite usar objetos mutáveis como chave; se fizer, não altere os campos usados por equals/hashCode enquanto a chave estiver no mapa.
+Use LinkedHashMap se precisar ordem previsível de iteração.
+
+Para coleções grandes e cargas específicas, ajuste initialCapacity e loadFactor.
